@@ -1,0 +1,178 @@
+CREATE TABLE coviddeaths(		
+iso_code	varchar(50)	,
+continent	varchar(50)	,
+location	varchar(50)	,
+date	varchar(50)	,
+population	varchar(50)	,
+total_cases	varchar(50)	,
+new_cases	varchar(50)	,
+new_cases_smoothed	varchar(50)	,
+total_deaths	varchar(50)	,
+new_deaths	varchar(50)	,
+new_deaths_smoothed	varchar(50)	,
+total_cases_per_million	varchar(50)	,
+new_cases_per_million	varchar(50)	,
+new_cases_smoothed_per_million	varchar(50)	,
+total_deaths_per_million	varchar(50)	,
+new_deaths_per_million	varchar(50)	,
+new_deaths_smoothed_per_million	varchar(50)	,
+reproduction_rate	varchar(50)	,
+icu_patients	varchar(50)	,
+icu_patients_per_million	varchar(50)	,
+hosp_patients	varchar(50)	,
+hosp_patients_per_million	varchar(50)	,
+weekly_icu_admissions	varchar(50)	,
+weekly_icu_admissions_per_million	varchar(50)	,
+weekly_hosp_admissions	varchar(50)	,
+weekly_hosp_admissions_per_million	varchar(50)
+);		
+select * from coviddeaths;
+COPY coviddeaths FROM 'C:\Users\isaha\Documents\portfolio\CovidDeaths.csv' HEADER CSV;
+select * from coviddeaths;
+
+CREATE TABLE covidvaccinations(		
+iso_code	VARCHAR (50)	,
+continent	VARCHAR (50)	,
+location	VARCHAR (50)	,
+date	VARCHAR (50)	,
+new_tests	VARCHAR (50)	,
+total_tests	VARCHAR (50)	,
+total_tests_per_thousand	VARCHAR (50)	,
+new_tests_per_thousand	VARCHAR (50)	,
+new_tests_smoothed	VARCHAR (50)	,
+new_tests_smoothed_per_thousand	VARCHAR (50)	,
+positive_rate	VARCHAR (50)	,
+tests_per_case	VARCHAR (50)	,
+tests_units	VARCHAR (50)	,
+total_vaccinations	VARCHAR (50)	,
+people_vaccinated	VARCHAR (50)	,
+people_fully_vaccinated	VARCHAR (50)	,
+total_boosters	VARCHAR (50)	,
+new_vaccinations	VARCHAR (50)	,
+new_vaccinations_smoothed	VARCHAR (50)	,
+total_vaccinations_per_hundred	VARCHAR (50)	,
+people_vaccinated_per_hundred	VARCHAR (50)	,
+people_fully_vaccinated_per_hundred	VARCHAR (50)	,
+total_boosters_per_hundred	VARCHAR (50)	,
+new_vaccinations_smoothed_per_million	VARCHAR (50)	,
+stringency_index	VARCHAR (50)	,
+population_density	VARCHAR (50)	,
+median_age	VARCHAR (50)	,
+aged_65_older	VARCHAR (50)	,
+aged_70_older	VARCHAR (50)	,
+gdp_per_capita	VARCHAR (50)	,
+extreme_poverty	VARCHAR (50)	,
+cardiovasc_death_rate	VARCHAR (50)	,
+diabetes_prevalence	VARCHAR (50)	,
+female_smokers	VARCHAR (50)	,
+male_smokers	VARCHAR (50)	,
+handwashing_facilities	VARCHAR (50)	,
+hospital_beds_per_thousand	VARCHAR (50)	,
+life_expectancy	VARCHAR (50)	,
+human_development_index	VARCHAR (50)	,
+excess_mortality_cumulative_absolute	VARCHAR (50)	,
+excess_mortality_cumulative	VARCHAR (50)	,
+excess_mortality	VARCHAR (50)	
+)		
+COPY covidvaccinations FROM 'C:\Users\isaha\Documents\portfolio\CovidVaccinations.csv' HEADER CSV;
+select * from covidvaccinations;
+
+SELECT *
+FROM coviddeaths where continent is not null order by 3,4;
+SELECT *
+FROM covidvaccinations order by 3,4;
+
+SELECT location, date, total_cases, new_cases, total_deaths,
+population FROM coviddeaths order by 1,2;
+
+-- Looking at Total Cases vs Total Deaths
+-- The result shows the likelihood of dying if you contract covid in different countries.
+SELECT location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as deathpercentage
+FROM coviddeaths WHERE location like '%Estonia%' order by 1,2;
+alter table coviddeaths alter column total_deaths TYPE numeric(10,0) using total_deaths::numeric;
+alter table coviddeaths alter column total_cases TYPE numeric(10,0) using total_cases::numeric;
+
+-- Looking at Total Cases vs Population
+-- Shows what percentage of population got Covid
+
+alter table coviddeaths alter column population TYPE numeric(10,0) using population::numeric;
+SELECT location, population, date, total_cases, (total_cases/population)*100 as percentofinfectedpopulation
+FROM coviddeaths WHERE location like '%Estonia%' order by 1,2;
+
+-- Looking at countries with the highest infection rate comparedd to population
+Select location, population, MAX(total_cases) as highestinfectioncount, MAX((total_cases/population))*100 as
+percentofinfectedpopulation From coviddeaths 
+Group by location, population Order by percentofinfectedpopulation desc;
+
+-- Showing Countries with Highest death count per population
+
+select location, MAX(cast(total_deaths as int)) as totaldeathcount from coviddeaths Where continent is not null
+group by location order by totaldeathcount desc;
+
+--Let's break things down by continent
+
+select continent, MAX(cast(total_deaths as int)) as
+totaldeathcount from coviddeaths where continent is
+not null group by continent order by totaldeathcount desc;
+
+--Showing continents with the highest death count per population
+
+select continent, MAX(cast(total_deaths as int)) as
+totaldeathcount from coviddeaths where continent is
+not null group by continent order by totaldeathcount desc;
+
+--global numbers
+
+alter table coviddeaths alter column new_cases TYPE numeric(10,0) using new_cases::numeric;
+select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths,
+SUM(cast(new_deaths as int))/SUM(new_cases)*100 as deathpercentage from
+coviddeaths 
+where continent is not null 
+--group by date 
+order by 1,2;
+
+--looking at total population vs vaccinations
+
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(CAST(vac.new_vaccinations as int)) over (partition by dea.location order by dea.location,
+	dea.date) as rollingpeoplevaccinated
+,
+from coviddeaths dea
+join covidvaccinations vac
+    on dea.location = vac.location 
+    and dea.date = vac.date
+where dea.continent is not null
+order by 2, 3;
+
+--use cte
+
+with popvsvac (continent, location, date, population, new_vaccinations, rollingpeoplevaccinated)
+as
+(
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(CAST(vac.new_vaccinations as int)) over (partition by dea.location order by dea.location,
+	dea.date) as rollingpeoplevaccinated
+from coviddeaths dea
+join covidvaccinations vac
+    on dea.location = vac.location 
+    and dea.date = vac.date
+where dea.continent is not null
+--order by 2, 3;
+)
+select *, (rollingpeoplevaccinated/population)*100
+from popvsvac
+
+
+
+--creating view to store data for later visualizations
+
+create view percentpopulationvaccinated as 
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(CAST(vac.new_vaccinations as int)) over (partition by dea.location order by dea.location,
+	dea.date) as rollingpeoplevaccinated
+from coviddeaths dea
+join covidvaccinations vac
+    on dea.location = vac.location 
+    and dea.date = vac.date
+where dea.continent is not null
+--order by 2, 3;
